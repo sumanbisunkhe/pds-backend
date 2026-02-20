@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+face_recognition
+cloudinary
+pymongo[srv]
+python-dotenv
+python-telegram-bot
+pydantic-settings
+pillow
+numpy
+requests
+watchdog
+pyftpdlib
+python-multipart
+httpx

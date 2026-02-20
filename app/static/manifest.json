@@ -1,0 +1,17 @@
+{
+  "name": "Face-Match Photo Distribution",
+  "short_name": "PhotoDist",
+  "description": "Receive your event photos instantly using AI face matching.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050a14",
+  "theme_color": "#00f2ff",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/1033/1033921.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
