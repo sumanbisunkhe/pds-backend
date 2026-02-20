@@ -1,6 +1,5 @@
 fastapi
 uvicorn[standard]
-face_recognition
 cloudinary
 pymongo[srv]
 python-dotenv
@@ -13,3 +12,6 @@ watchdog
 pyftpdlib
 python-multipart
 httpx
+# dlib pre-built wheel (avoids hours of compilation on small VMs)
+dlib==19.24.6
+face_recognition

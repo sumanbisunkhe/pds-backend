@@ -5,13 +5,9 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Install system dependencies required for building dlib and face_recognition
-# cmake and build-essential are critical here
+# Install only minimal system dependencies
+# No cmake/build-essential needed since we use pre-built dlib wheel
 RUN apt-get update && apt-get install -y \
-    cmake \
-    build-essential \
-    libopenblas-dev \
-    liblapack-dev \
     libgl1 \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
@@ -21,12 +17,12 @@ WORKDIR /app
 # Copy requirements file
 COPY requirements.txt .
 
-# Upgrade pip and build tools to avoid build issues
+# Upgrade pip and build tools
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
 # Install dependencies
-# Using --no-cache-dir to save space
-# This step compiles dlib, which is memory intensive
+# dlib 19.24.6 has pre-built wheels for Python 3.11 on Linux x86_64
+# This avoids the ~2 hour compilation step
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application
@@ -36,5 +32,4 @@ COPY . .
 EXPOSE 8000
 
 # Command to run the application
-# Use the port environment variable required by Render
 CMD sh -c "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
