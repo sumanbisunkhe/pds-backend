@@ -12,6 +12,7 @@ watchdog
 pyftpdlib
 python-multipart
 httpx
-# dlib pre-built wheel (avoids hours of compilation on small VMs)
-dlib==19.24.6
+# dlib-bin provides pre-built Linux x86_64 wheels (no cmake/compilation needed)
+# This replaces the 2-hour dlib source compile on cloud VMs
+dlib-bin
 face_recognition

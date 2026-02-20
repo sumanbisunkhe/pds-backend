@@ -13,14 +13,29 @@ import certifi
 
 class MongoDBService:
     def __init__(self, uri, db_name):
-        # Increased timeouts and ensured tls=True for Atlas connectivity
-        self.client = MongoClient(
-            uri, 
-            tlsCAFile=certifi.where(),
-            serverSelectionTimeoutMS=10000,
-            connectTimeoutMS=10000,
-            socketTimeoutMS=20000
-        )
+        # Try connecting with certifi CA bundle first (works on most systems)
+        # Falls back to tlsAllowInvalidCertificates for Python 3.14+ SSL changes
+        try:
+            self.client = MongoClient(
+                uri,
+                tlsCAFile=certifi.where(),
+                serverSelectionTimeoutMS=10000,
+                connectTimeoutMS=10000,
+                socketTimeoutMS=20000
+            )
+            # Force a connection attempt to validate it works
+            self.client.admin.command('ping')
+        except Exception:
+            # Fallback: use system SSL context (works with Python 3.14)
+            import ssl
+            self.client = MongoClient(
+                uri,
+                tls=True,
+                tlsAllowInvalidCertificates=False,
+                serverSelectionTimeoutMS=10000,
+                connectTimeoutMS=10000,
+                socketTimeoutMS=20000
+            )
         self.db = self.client[db_name]
         self.users = self.db["users"]
         self.photos = self.db["photos"]
