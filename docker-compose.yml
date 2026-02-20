@@ -1,8 +1,7 @@
-version: '3.8'
-
 services:
   api:
     build: .
+    image: ${DOCKER_IMAGE:-pds-backend}
     container_name: pds-backend-api
     restart: always
     environment:
@@ -20,6 +19,7 @@ services:
 
   ftp:
     build: .
+    image: ${DOCKER_IMAGE:-pds-backend}
     container_name: pds-backend-ftp
     restart: always
     command: python scripts/ftp_receiver.py

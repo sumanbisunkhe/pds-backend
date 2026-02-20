@@ -12,7 +12,7 @@ watchdog
 pyftpdlib
 python-multipart
 httpx
-# dlib-bin provides pre-built Linux x86_64 wheels (no cmake/compilation needed)
-# This replaces the 2-hour dlib source compile on cloud VMs
-dlib-bin
+certifi
+# dlib must be compiled from source on Linux - cmake is required in the Dockerfile
+dlib
 face_recognition

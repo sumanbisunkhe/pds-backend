@@ -4,10 +4,15 @@ FROM python:3.11-slim
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+# Skip GUI components in dlib to speed up compile
+ENV DLIB_NO_GUI_SUPPORT=1
 
-# Install only minimal system dependencies
-# No cmake/build-essential needed since we use pre-built dlib wheel
+# Install system dependencies required for building dlib
 RUN apt-get update && apt-get install -y \
+    cmake \
+    build-essential \
+    libopenblas-dev \
+    liblapack-dev \
     libgl1 \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
@@ -20,10 +25,27 @@ COPY requirements.txt .
 # Upgrade pip and build tools
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# Install dependencies
-# dlib 19.24.6 has pre-built wheels for Python 3.11 on Linux x86_64
-# This avoids the ~2 hour compilation step
-RUN pip install --no-cache-dir -r requirements.txt
+# Install all dependencies EXCEPT dlib+face_recognition first (fast packages)
+RUN pip install --no-cache-dir \
+    fastapi \
+    "uvicorn[standard]" \
+    cloudinary \
+    "pymongo[srv]" \
+    python-dotenv \
+    python-telegram-bot \
+    pydantic-settings \
+    pillow \
+    numpy \
+    requests \
+    watchdog \
+    pyftpdlib \
+    python-multipart \
+    httpx \
+    certifi
+
+# Install dlib last (this step compiles C++ and takes 20-30 minutes)
+# Build with 4 parallel jobs to use all available CPUs
+RUN pip install --no-cache-dir dlib face_recognition
 
 # Copy the rest of the application
 COPY . .
