@@ -120,6 +120,18 @@ def run_ftp_server():
     handler.authorizer = authorizer
     handler.banner = "Photo Dist Server (Watchdog Enabled)"
 
+    # Configure Passive Mode for Cloud/NAT environments
+    masquerade_address = os.getenv("FTP_MASQUERADE_ADDRESS")
+    if masquerade_address:
+        handler.masquerade_address = masquerade_address
+        print(f"FTP Masquerade Address: {masquerade_address}")
+
+    passive_ports = os.getenv("FTP_PASSIVE_PORTS")
+    if passive_ports:
+        start, end = map(int, passive_ports.split('-'))
+        handler.passive_ports = range(start, end + 1)
+        print(f"FTP Passive Ports: {start}-{end}")
+
     server = FTPServer(("0.0.0.0", FTP_PORT), handler)
     print(f"FTP Server started on port {FTP_PORT}")
 

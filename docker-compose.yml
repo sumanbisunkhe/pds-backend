@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    container_name: pds-backend-api
+    restart: always
+    environment:
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      - MONGODB_URI=${MONGODB_URI}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - VITE_API_URL=${VITE_API_URL}
+      - PORT=8000
+    ports:
+      - "8000:8000"
+    networks:
+      - pds-network
+
+  ftp:
+    build: .
+    container_name: pds-backend-ftp
+    restart: always
+    command: python scripts/ftp_receiver.py
+    environment:
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      - FTP_USER=${FTP_USER:-camera}
+      - FTP_PASSWORD=${FTP_PASSWORD:-password123}
+      - FTP_PORT=${FTP_PORT:-2121}
+      - FTP_MASQUERADE_ADDRESS=${FTP_MASQUERADE_ADDRESS}
+      - FTP_PASSIVE_PORTS=${FTP_PASSIVE_PORTS}
+      - API_URL=http://api:8000
+    ports:
+      - "2121:2121"
+      # Passive mode ports (needed for Azure which is behind NAT)
+      - "60000-60010:60000-60010"
+    volumes:
+      - ./ftp_uploads:/app/ftp_uploads
+    networks:
+      - pds-network
+    depends_on:
+      - api
+
+networks:
+  pds-network:
+    driver: bridge
