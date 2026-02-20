@@ -21,9 +21,8 @@ WORKDIR /app
 # Copy requirements file
 COPY requirements.txt .
 
-# Install dependencies
-# We install cmake explicitly on pip just in case, though apt-get has it
-RUN pip install --no-cache-dir cmake
+# Upgrade pip and build tools to avoid build issues
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
 # Install dependencies
 # Using --no-cache-dir to save space
