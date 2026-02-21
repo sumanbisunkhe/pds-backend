@@ -13,7 +13,7 @@ class TelegramService:
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
-            "Welcome to the FOTO! 📸\n\n"
+            "Welcome to the Fotoo! 📸\n\n"
             "Please send me a clear selfie so I can send you your photos."
         )
 
@@ -35,10 +35,12 @@ class TelegramService:
             
             # Get encoding - run in threadpool to avoid blocking event loop
             loop = asyncio.get_event_loop()
+            jitters = int(os.getenv("NUM_JITTERS_REGISTRATION", "50"))
             encodings = await loop.run_in_executor(
                 None, 
                 self.face_service.get_face_encodings, 
-                resized_bytes
+                resized_bytes,
+                jitters
             )
             
             if not encodings:
@@ -69,6 +71,7 @@ class TelegramService:
             await update.message.reply_text("An error occurred while processing your selfie. Please try again later.")
 
     def run(self):
+        # Build the application
         application = ApplicationBuilder().token(self.token).build()
         
         start_handler = CommandHandler('start', self.start)
@@ -77,4 +80,7 @@ class TelegramService:
         application.add_handler(start_handler)
         application.add_handler(selfie_handler)
         
-        application.run_polling()
+        # When running in a background thread, we MUST disable signal handling
+        # and not close the loop, otherwise it crashes with "set_wakeup_fd" errors.
+        print("Starting Telegram Bot polling...")
+        application.run_polling(close_loop=False, stop_signals=False)

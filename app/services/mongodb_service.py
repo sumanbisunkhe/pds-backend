@@ -1,5 +1,7 @@
 from pymongo import MongoClient
 from pydantic_settings import BaseSettings
+import certifi
+import ssl
 import os
 
 class MongoSettings(BaseSettings):
@@ -9,36 +11,79 @@ class MongoSettings(BaseSettings):
     class Config:
         env_file = ".env"
 
-import certifi
-
 class MongoDBService:
     def __init__(self, uri, db_name):
-        # Try connecting with certifi CA bundle first (works on most systems)
-        # Falls back to tlsAllowInvalidCertificates for Python 3.14+ SSL changes
+        """
+        Connection strategy for MongoDB Atlas:
+        1. certifi CA bundle  — bypasses container system CA issues (TLSV1_ALERT_INTERNAL_ERROR)
+        2. Standard TLS       — uses system CA store
+        3. tlsAllowInvalidCertificates=True — last resort, no cert validation
+        """
+        connected = False
+
+        # --- Strategy 1: certifi CA bundle (PRIMARY — most reliable for Atlas in Docker) ---
         try:
             self.client = MongoClient(
                 uri,
-                tlsCAFile=certifi.where(),
-                serverSelectionTimeoutMS=10000,
-                connectTimeoutMS=10000,
-                socketTimeoutMS=20000
-            )
-            # Force a connection attempt to validate it works
-            self.client.admin.command('ping')
-        except Exception:
-            # Fallback: use system SSL context (works with Python 3.14)
-            import ssl
-            self.client = MongoClient(
-                uri,
                 tls=True,
-                tlsAllowInvalidCertificates=False,
-                serverSelectionTimeoutMS=10000,
-                connectTimeoutMS=10000,
-                socketTimeoutMS=20000
+                tlsCAFile=certifi.where(),
+                serverSelectionTimeoutMS=8000,
+                connectTimeoutMS=8000,
+                socketTimeoutMS=20000,
+                connect=True,
             )
+            self.client.admin.command('ping')
+            print("✓ MongoDB connected via certifi CA bundle.")
+            connected = True
+        except Exception as e1:
+            print(f"✗ certifi strategy failed: {e1}")
+
+        # --- Strategy 2: Standard system TLS ---
+        if not connected:
+            try:
+                self.client = MongoClient(
+                    uri,
+                    tls=True,
+                    serverSelectionTimeoutMS=8000,
+                    connectTimeoutMS=8000,
+                    socketTimeoutMS=20000,
+                    connect=True,
+                )
+                self.client.admin.command('ping')
+                print("✓ MongoDB connected via standard TLS.")
+                connected = True
+            except Exception as e2:
+                print(f"✗ Standard TLS strategy failed: {e2}")
+
+        # --- Strategy 3: Skip certificate validation (last resort) ---
+        if not connected:
+            try:
+                self.client = MongoClient(
+                    uri,
+                    tls=True,
+                    tlsAllowInvalidCertificates=True,
+                    serverSelectionTimeoutMS=8000,
+                    connectTimeoutMS=8000,
+                    socketTimeoutMS=20000,
+                    connect=True,
+                )
+                self.client.admin.command('ping')
+                print("✓ MongoDB connected (certificate validation disabled — last resort).")
+                connected = True
+            except Exception as e3:
+                print(f"✗ All MongoDB connection strategies failed. Last error: {e3}")
+                raise RuntimeError(f"Cannot connect to MongoDB Atlas: {e3}") from e3
+
         self.db = self.client[db_name]
         self.users = self.db["users"]
         self.photos = self.db["photos"]
+        self.about = self.db["About"]
+
+    def get_about_details(self):
+        """
+        Fetches the about page details.
+        """
+        return self.about.find_one({}, {"_id": 0})
 
     def save_user_encoding(self, telegram_id, encoding):
         """
@@ -84,13 +129,16 @@ class MongoDBService:
             "encodings": [enc.tolist() for enc in encodings]
         })
 
-    def find_matches_for_user(self, user_encoding, tolerance=0.6):
+    def find_matches_for_user(self, user_encoding, tolerance=None):
         """
         This is a basic implementation. For 1000s of photos, 
         you'd want to optimize this search.
         """
         import face_recognition
         import numpy as np
+        
+        if tolerance is None:
+            tolerance = float(os.getenv("FACE_RECOGNITION_TOLERANCE", "0.6"))
 
         matched_photos = []
         # Fetch all photos with their encodings, latest first

@@ -1,0 +1,30 @@
+services:
+  api:
+    image: flowers123/pds-backend:latest
+    container_name: pds-backend-api
+    restart: always
+    env_file: .env
+    ports:
+      - "8000:8000"
+    networks:
+      - pds-network
+
+  ftp:
+    image: flowers123/pds-backend:latest
+    container_name: pds-backend-ftp
+    restart: always
+    command: python scripts/ftp_receiver.py
+    env_file: .env
+    ports:
+      - "2121:2121"
+      - "60000-60010:60000-60010"
+    volumes:
+      - ./ftp_uploads:/app/ftp_uploads
+    networks:
+      - pds-network
+    depends_on:
+      - api
+
+networks:
+  pds-network:
+    driver: bridge

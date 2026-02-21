@@ -31,7 +31,7 @@ FTP_USER = os.getenv("FTP_USER", "camera")
 FTP_PASSWORD = os.getenv("FTP_PASSWORD", "password123")
 FTP_PORT = int(os.getenv("FTP_PORT", "2121"))
 FTP_DIRECTORY = "./ftp_uploads"
-
+BACKEND_API_URL = os.getenv("BACKEND_API_URL", "http://localhost:8000")
 # Global set to prevent duplicate processing
 processed_files = set()
 
@@ -85,7 +85,7 @@ class PhotoFileWatcher(FileSystemEventHandler):
                 
                 # TRIGGER AUTOMATIC PROCESSING
                 try:
-                    requests.post("http://localhost:8000/process-photos", timeout=1)
+                    requests.post(f"{BACKEND_API_URL}/process-photos", timeout=1)
                     print("Triggered automatic face matching.")
                 except:
                     pass # Backend might still be starting up

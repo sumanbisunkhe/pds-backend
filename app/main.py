@@ -14,6 +14,7 @@ import requests
 import io
 import uuid
 import numpy as np
+import threading
 from telegram import Bot
 
 load_dotenv()
@@ -38,7 +39,6 @@ async def lifespan(app: FastAPI):
     loop_task = asyncio.create_task(auto_process_loop())
     
     # Start Telegram Bot in a separate thread
-    import threading
     bot_thread = threading.Thread(target=run_bot, daemon=True)
     bot_thread.start()
     print("Telegram Bot thread started.")
@@ -51,6 +51,9 @@ async def lifespan(app: FastAPI):
         await loop_task
     except asyncio.CancelledError:
         print("Background loop stopped.")
+
+# Concurrency Lock to prevent RAM spikes on 1GB Azure VM
+processing_lock = threading.Lock()
 
 app = FastAPI(title="Face-Matching Photo Distribution System", lifespan=lifespan)
 
@@ -110,9 +113,14 @@ async def notify_subscribers(data: dict):
 async def process_new_photos():
     """
     Background task to fetch images from Cloudinary and process them.
-    Using Cloudinary Search API to only get 'unprocessed' photos.
+    Protected by a Lock to prevent multiple heavy CNN detections at once.
     """
-    print("Checking for new photos (Unprocessed)...")
+    if processing_lock.locked():
+        print("Processing already in progress. Skipping this loop to save RAM.")
+        return
+
+    with processing_lock:
+        print("Checking for new photos (Unprocessed)...")
     resources = cloudinary_service.list_unprocessed(folder="event_photos")
     
     if not resources:
@@ -157,10 +165,11 @@ async def process_new_photos():
                 if bot_token and bot_token != "your_telegram_bot_token":
                     bot = Bot(token=bot_token)
                     
+                    tolerance = float(os.getenv("FACE_RECOGNITION_TOLERANCE", "0.6"))
                     for user in users:
                         user_enc = np.array(user["encoding"])
                         import face_recognition
-                        matches = face_recognition.compare_faces(encodings, user_enc, tolerance=0.6)
+                        matches = face_recognition.compare_faces(encodings, user_enc, tolerance=tolerance)
                         
                         if any(matches) and "telegram_id" in user:
                             try:
@@ -228,6 +237,16 @@ async def get_recent_photos():
     except Exception as e:
         return {"error": str(e)}
 
+@app.get("/api/about")
+async def get_about_details():
+    try:
+        details = mongo_service.get_about_details()
+        if not details:
+            return {"error": "About details not found in database."}
+        return details
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.post("/api/register-web")
 async def register_web(file: UploadFile = File(...), web_id: str = Form(None)):
     try:
@@ -237,7 +256,8 @@ async def register_web(file: UploadFile = File(...), web_id: str = Form(None)):
         contents = await file.read()
         # Resize for faster processing
         resized_bytes = face_service.resize_image(contents)
-        encodings = face_service.get_face_encodings(resized_bytes)
+        jitters = int(os.getenv("NUM_JITTERS_REGISTRATION", "50"))
+        encodings = face_service.get_face_encodings(resized_bytes, num_jitters=jitters)
         
         if not encodings:
             return {"error": "No face detected in the selfie. Please try again."}

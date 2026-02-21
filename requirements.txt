@@ -1,3 +1,4 @@
+setuptools<71
 fastapi
 uvicorn[standard]
 cloudinary
@@ -13,6 +14,3 @@ pyftpdlib
 python-multipart
 httpx
 certifi
-# dlib must be compiled from source on Linux - cmake is required in the Dockerfile
-dlib
-face_recognition
